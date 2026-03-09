@@ -2,7 +2,7 @@
 Secure, zero-trust sandbox and firewall for OpenClaw. Provides maximum isolation for OpenClaw instances running in sensitive network environments.
 
 **Features:**
-- Select specific `IP`:`Port`:`Protocol` pairings for OpenClaw. ✅
+- Select specific `IP`:`Port`:`Protocol` pairings to allow for OpenClaw. ✅
 
 - Select specific `Domain`:`Port`:`Protocol` pairings to allow. ✅
 
