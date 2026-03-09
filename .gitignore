@@ -1,0 +1,10 @@
+# Wireguard is only used for internal routing. We don't need to ignore the Wireguard keys in ./secrets,
+# but it is a good idea to rotate them out before you deploy this for yourself.
+# (If an attacker compromises your docker internal_net, you honestly have bigger problems)
+# secrets/
+
+.env
+.npmrc
+node_modules/
+dist/
+build/

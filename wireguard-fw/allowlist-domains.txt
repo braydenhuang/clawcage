@@ -1,0 +1,13 @@
+# Format: domain:port:protocol
+# protocol must be one of {tcp, udp}
+#
+# Notes:
+# The domain is first resolved by refresh.sh into an IP address, and the resulting IP:port:protocol is allowed
+
+
+openclaw.ai:443:tcp
+openclaw.ai:80:tcp
+npmjs.com:443:tcp
+npmjs.com:80:tcp
+registry.npmjs.org:443:tcp
+registry.npmjs.org:80:tcp
