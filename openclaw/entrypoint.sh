@@ -52,4 +52,5 @@ dig +short +time=3 +tries=2 openclaw.ai @10.0.0.1 > /dev/null 2>&1 || \
 # TODO: uncomment when OpenClaw is ready to run in foreground
 #exec openclaw "$@"
 echo "[entrypoint] Holding script open..."
-tail -f /dev/null
+rm -f /entrypoint.sh # Delete this script after startup to minimize information available to an attacker
+exec tail -f /dev/null

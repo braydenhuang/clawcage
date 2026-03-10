@@ -17,8 +17,18 @@
 #   inet filter allowed_udp_endpoints   — ip . port pairs for UDP
 #   inet filter allowed_domain_ips      — bare IPs resolved from domains
 #
-# Idempotency: sets are flushed before loading, so repeated runs with the
-# same input produce the same state with no duplicates or errors.
+# Atomicity: all set updates (flush + add) are written to a single nft batch
+# file and applied with `nft -f`, ensuring the transition is atomic. There is
+# no window during which sets are empty — the old elements are replaced by the
+# new ones in a single kernel transaction.
+#
+# Idempotency: because sets are flushed then repopulated atomically, repeated
+# runs with the same inputs produce identical state with no duplicates.
+#
+# Conntrack note: the forward chain's `ct state established,related accept`
+# rule fires before any set lookup, so established connections are never
+# disrupted by a set refresh — only new connection attempts are evaluated
+# against the updated sets.
 #
 # Exit codes:
 #   0  — all entries processed without error
@@ -33,9 +43,15 @@ DOMAIN_ALLOWLIST="/etc/fw/allowlist-domains.txt"
 IP_ALLOWLIST="/etc/fw/allowlist-ips.txt"
 LOG_FILE="/var/log/fw-refresh.log"
 
-# Temporary working files — cleaned up on exit via trap
+# On batch failure, a copy of the nft script is saved here for debugging.
+# This is a fixed path so repeated failures overwrite rather than accumulate.
+NFT_DEBUG="/var/log/fw-refresh-failed.nft"
+
+# Temporary working files — cleaned up on exit via trap (PID-suffixed to
+# avoid collisions if multiple instances somehow run concurrently)
 TMP_IPS="/tmp/fw_ips_clean.$$.txt"
 TMP_DOMAINS="/tmp/fw_domains_clean.$$.txt"
+TMP_NFT="/tmp/fw_nft_batch.$$.nft"
 
 # Counters
 TCP_COUNT=0
@@ -45,10 +61,13 @@ WARN_COUNT=0
 ERR_COUNT=0
 
 # ---------------------------------------------------------------------------
-# Cleanup — remove temp files on exit, interrupt, or termination
+# Cleanup — remove ALL temp files on exit, interrupt, or termination.
+#
+# This always runs, including on error paths. Debug information is preserved
+# separately via a copy to NFT_DEBUG, not by suppressing cleanup.
 # ---------------------------------------------------------------------------
 cleanup() {
-    rm -f "$TMP_IPS" "$TMP_DOMAINS"
+    rm -f "$TMP_IPS" "$TMP_DOMAINS" "$TMP_NFT"
 }
 trap cleanup EXIT INT TERM
 
@@ -143,30 +162,6 @@ append_element() {
     fi
 }
 
-# ---------------------------------------------------------------------------
-# load_nft_set — flush and reload an nftables set
-#
-# Usage: load_nft_set <set_name> <elements_string> <label>
-#
-# The set is always flushed first (idempotency). If elements_string is
-# non-empty the elements are added; otherwise an informational message is
-# logged.
-# ---------------------------------------------------------------------------
-load_nft_set() {
-    _set="$1" _elements="$2" _label="$3"
-
-    nft flush set inet filter "$_set" || true
-
-    if [ -n "$_elements" ]; then
-        log_info "Loading $_label into $_set"
-        if ! nft add element inet filter "$_set" "{ $_elements }"; then
-            log_error "nft rejected $_label for set $_set"
-        fi
-    else
-        log_info "No $_label to load into $_set"
-    fi
-}
-
 # =============================================================================
 # Main
 # =============================================================================
@@ -227,7 +222,7 @@ else
 fi
 
 # =========================================================================
-# 2. Process allowlist-domains.txt  →  resolve, then add to sets
+# 2. Process allowlist-domains.txt  →  resolve, then add to accumulators
 # =========================================================================
 if [ -f "$DOMAIN_ALLOWLIST" ]; then
     strip_comments "$DOMAIN_ALLOWLIST" > "$TMP_DOMAINS"
@@ -279,17 +274,56 @@ else
 fi
 
 # =========================================================================
-# 3. Load accumulated elements into nftables sets
+# 3. Build and apply an atomic nft batch file
+#
+# All three sets are flushed and repopulated in a single `nft -f` call.
+# The kernel applies the entire batch as one transaction, so there is no
+# window during which sets are empty — the old elements are replaced by the
+# new ones instantaneously. Established connections are unaffected because
+# conntrack accepts them before set lookups are reached.
 # =========================================================================
 
-# Strip trailing commas
+# Strip trailing commas from element lists
 TCP_ELEMENTS="${TCP_ELEMENTS%,}"
 UDP_ELEMENTS="${UDP_ELEMENTS%,}"
 DOMAIN_IPS="${DOMAIN_IPS%,}"
 
-load_nft_set "allowed_tcp_endpoints" "$TCP_ELEMENTS"  "TCP endpoints"
-load_nft_set "allowed_udp_endpoints" "$UDP_ELEMENTS"  "UDP endpoints"
-load_nft_set "allowed_domain_ips"    "$DOMAIN_IPS"    "domain IPs"
+log_info "Building atomic nft batch file"
+
+cat > "$TMP_NFT" <<NFT_BATCH
+#!/usr/sbin/nft -f
+# --- Atomic refresh of firewall allowlist sets ---
+# Generated by refresh.sh at $(date '+%Y-%m-%d %H:%M:%S')
+
+# Flush all three sets in the same transaction
+flush set inet filter allowed_tcp_endpoints
+flush set inet filter allowed_udp_endpoints
+flush set inet filter allowed_domain_ips
+
+NFT_BATCH
+
+# Only emit add-element commands for non-empty sets (nft errors on empty braces)
+if [ -n "$TCP_ELEMENTS" ]; then
+    echo "add element inet filter allowed_tcp_endpoints {$TCP_ELEMENTS }" >> "$TMP_NFT"
+fi
+
+if [ -n "$UDP_ELEMENTS" ]; then
+    echo "add element inet filter allowed_udp_endpoints {$UDP_ELEMENTS }" >> "$TMP_NFT"
+fi
+
+if [ -n "$DOMAIN_IPS" ]; then
+    echo "add element inet filter allowed_domain_ips {$DOMAIN_IPS }" >> "$TMP_NFT"
+fi
+
+# Apply the batch atomically. On failure, copy the batch file to a stable
+# debug path (overwriting any prior failure snapshot) so it can be inspected
+# without leaking PID-suffixed temp files across repeated failures.
+log_info "Applying atomic nft batch"
+if ! nft -f "$TMP_NFT"; then
+    log_error "Atomic nft batch failed — sets may be in an inconsistent state"
+    cp "$TMP_NFT" "$NFT_DEBUG"
+    log_error "Batch file saved to $NFT_DEBUG for inspection"
+fi
 
 # =========================================================================
 # 4. Summary

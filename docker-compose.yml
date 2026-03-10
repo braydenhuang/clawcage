@@ -43,16 +43,22 @@ services:
       context: ./wireguard-fw
       dockerfile: Dockerfile
     container_name: wireguard-fw
-    hostname: wireguard-fw
+    hostname: hnfcvnwdxuefinuk # random hostname to mitigate information leakage via Docker internal DNS
     restart: unless-stopped
 
     networks:
       internal_net:
         ipv4_address: 172.30.0.2
+        aliases: []   # no additonal DNS aliases registered on internal_net
       external_net:
 
     cap_add:
+      # Grants modification of network interfaces and routing tables, necessary for WireGuard to function properly
       - NET_ADMIN
+
+      # Allows loading and unloading of kernel modules, required for WireGuard's kernel module to operate
+      # If your host kernel already has WireGuard built in (check with `modinfo wireguard`), 
+      # you can drop this capability and the container will use the host's WireGuard implementation, for more security.
       - SYS_MODULE
 
     sysctls:
@@ -98,11 +104,17 @@ services:
     networks:
       - internal_net
 
+    volumes:
+      - ./openclaw/resolv.conf:/etc/resolv.conf:ro    # improve security by preventing OpenClaw container from easily changing DNS servers
+
     dns_search: []
     dns_opt:
       - ndots:0
 
     cap_add:
+      # Grants modification of network interfaces and routing tables, necessary for WireGuard to function properly.
+      # Not a security risk for OpenClaw since the container is isolated on an internal network and has no access to the host's network stack.
+      # Can be removed with an init sidecar that sets up the WireGuard interface and then drops privileges before exec'ing OpenClaw, for even better security.
       - NET_ADMIN
 
     sysctls:
@@ -113,15 +125,16 @@ services:
       - openclaw_private_key
       - fw_public_key
 
-    # wg-client.conf is baked into the image via Dockerfile COPY — no bind mount needed
+    security_opt:
+      # Prevent privilege escalation to root (e.g. via sudo or setuid binaries) within the container
+      - no-new-privileges:true
+
+    devices: [] # no device access
 
     tmpfs:
       - /run/wireguard:size=1m,mode=0700    # wg0.conf in RAM only
       - /run:size=32m,mode=0755             # required by wg-quick at runtime
       - /tmp:size=128m,mode=1777            # general runtime scratch space
-
-    dns:
-      - 172.30.0.2
 
     environment:
       - NO_PROXY=localhost,127.0.0.1
