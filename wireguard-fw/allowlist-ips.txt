@@ -1,3 +1,6 @@
 # Format: domain:port:protocol
 # protocol must be one of {tcp, udp}
+#
+# These are IPs you want your OpenClaw to access.
+#
 

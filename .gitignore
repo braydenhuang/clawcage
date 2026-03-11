@@ -5,6 +5,7 @@
 
 .env
 .npmrc
+.openclaw/
 node_modules/
 dist/
 build/

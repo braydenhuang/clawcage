@@ -25,7 +25,7 @@ sed \
 chmod 600 /run/wireguard/wg0.conf
 
 # ============================================================
-# 2. Verify tunnel is up, harden routing, start OpenClaw
+# 2. Verify tunnel is up, harden container
 # ============================================================
 wg-quick up /run/wireguard/wg0.conf
 
@@ -49,8 +49,14 @@ echo "[entrypoint] Testing DNS via tunnel..."
 dig +short +time=3 +tries=2 openclaw.ai @10.0.0.1 > /dev/null 2>&1 || \
     echo "[entrypoint] WARNING: DNS resolution failed"
 
-# TODO: uncomment when OpenClaw is ready to run in foreground
-#exec openclaw "$@"
-echo "[entrypoint] Holding script open..."
+# Ensure the app binary and any data dirs are owned correctly
+# Must be done at entrypoint or else a restart on a volume would cause permission issues
+chown -R openclaw:openclaw /home
+chown -R openclaw:openclaw /var
+
+# ============================================================
+# 3. Start OpenClaw gateway, delete entrypoint script, exec as openclaw user
+# ============================================================
 rm -f /entrypoint.sh # Delete this script after startup to minimize information available to an attacker
-exec tail -f /dev/null
+echo "[entrypoint] Executing \"openclaw onboard\"..."
+exec gosu openclaw openclaw gateway run --allow-unconfigured

@@ -20,13 +20,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY unbound.conf      /etc/unbound/unbound.conf
 COPY nftables.conf     /etc/nftables.conf
-COPY refresh.sh    /usr/local/bin/refresh.sh
+COPY refresh.sh        /usr/local/bin/refresh.sh
 COPY wg0.conf          /etc/wireguard/wg0.conf
 COPY entrypoint.sh     /entrypoint.sh
 
 RUN chmod +x /usr/local/bin/refresh.sh /entrypoint.sh && \
     chmod 600 /etc/wireguard/wg0.conf && \
-    mkdir -p /run/wireguard && chmod 700 /run/wireguard 
+    mkdir -p /run/wireguard && chmod 700 /run/wireguard
 
 EXPOSE 51820/udp
 

@@ -25,12 +25,6 @@ Secure, zero-trust sandbox and firewall for OpenClaw. Provides maximum isolation
 
 ## Quick Start:
 
-Run:
-```bash
-docker-compose up
-```
-*That's all it takes!*
-
 Add allowed domains and IPs in `wireguard-fw/allowlist-domains.txt` and `wireguard-fw/allowlist-ips.txt`.
 ```makefile
 # Example: allowlist-domains.txt
@@ -57,10 +51,44 @@ registry.npmjs.org:80:tcp
 
 10.34.33.25:443:tcp
 ```
-
 > **Note:** All unspecified endpoints are dropped by the firewall.
 
+Then Run:
+```bash
+docker-compose -f 'docker-compose.yml' up -d --build
+```
+The OpenClaw gateway will start, but might not be configured properly.
+
+Afterwards, get a terminal in your `openclaw` container:
+```bash
+docker exec -it openclaw bash
+```
+
+Then set up OpenClaw, while noting key differences with the [docker sandbox](https://docs.openclaw.ai/install/docker):
+```bash
+# In openclaw container
+
+root@openclaw:/$ gosu openclaw bash
+openclaw@openclaw:/$ openclaw onboard
+```
+
+> **Note:** The gateway is started as the `openclaw` user with limited permissions. 
+> However, you have root access through the shell.
+> You should try all commands as the `openclaw` user, reserving `root` only for when permission issues arise. 
+
+## Tips:
+
+#### Restarting OpenClaw
+- The settings in `/home/openclaw/.openclaw` are saved as a volume, so you can restart OpenClaw by running:
+    ```bash
+    docker-compose -f 'docker-compose.yml' up -d --build 'openclaw'
+    ```
+    > **Note:** The `--build` must be included to copy `entrypoint.sh` into the container every startup, since it deletes itself for security purposes.
+
 ## Troubleshooting:
+
+#### My OpenClaw browser doesn't work
+- Setting up a headless browser in the Docker container requires more steps, but there are many methods available. See the [OpenClaw docs](https://docs.openclaw.ai/install/docker).
 
 #### The firewall cannot resolve via DNS-over-TLS (DoT)
 - This is common in corporate or restricted networks.
@@ -98,4 +126,3 @@ registry.npmjs.org:80:tcp
 ## To-Do List:
 
 - Add more protocols (ICMP)
-- Preinstall OpenClaw in `./openclaw/Dockerfile`

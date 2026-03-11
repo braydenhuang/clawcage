@@ -1,9 +1,11 @@
 # Format: domain:port:protocol
 # protocol must be one of {tcp, udp}
 #
+# These are domains you want your OpenClaw to access.
+#
 # Notes:
 # The domain is first resolved by refresh.sh into an IP address, and the resulting IP:port:protocol is allowed
-
+#
 
 openclaw.ai:443:tcp
 openclaw.ai:80:tcp
