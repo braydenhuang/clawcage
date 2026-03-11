@@ -36,7 +36,7 @@ RUN curl -fsSL --proto '=https' --tlsv1.3 https://openclaw.ai/install.sh | bash 
 # This might break kernel module tools (modprobe, depmod insmod, etc.)
 # and build tools like dkms. Remove this portion if it's causing issues.
 RUN printf '#!/bin/sh\n \
-case "$1" in\n\
+case "$1" in\n \
   -r) echo "6.1.0-bookworm-amd64" ;;\n \
   *)  exec /bin/uname "$@" ;;\n \
 esac\n' > /usr/local/bin/uname \
