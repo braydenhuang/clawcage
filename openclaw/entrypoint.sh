@@ -52,7 +52,6 @@ dig +short +time=3 +tries=2 openclaw.ai @10.0.0.1 > /dev/null 2>&1 || \
 # Ensure the app binary and any data dirs are owned correctly
 # Must be done at entrypoint or else a restart on a volume would cause permission issues
 chown -R openclaw:openclaw /home
-chown -R openclaw:openclaw /var
 
 # ============================================================
 # 3. Start OpenClaw gateway, delete entrypoint script, exec as openclaw user

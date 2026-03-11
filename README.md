@@ -63,20 +63,31 @@ The OpenClaw gateway will start, but might not be configured properly.
 
 Afterwards, get a terminal in your `openclaw` container:
 ```bash
-docker exec -it openclaw bash
+docker exec -it openclaw sh -c "exec gosu openclaw bash"
 ```
 
 Then set up OpenClaw, while noting key differences with the [docker sandbox](https://docs.openclaw.ai/install/docker):
 ```bash
 # In openclaw container
 
-root@openclaw:/$ gosu openclaw bash
 openclaw@openclaw:/$ openclaw onboard
 ```
 
-> **Note:** The gateway is started as the `openclaw` user with limited permissions. 
+> **Note:** 
+> The gateway is started as the `openclaw` user with limited permissions. 
 > However, you have root access through the shell.
 > You should try all commands as the `openclaw` user, reserving `root` only for when permission issues arise. 
+
+> **Warning:**
+> `gosu` is used to drop permissions *(such as going from `root` to `openclaw` user)* when standard 
+> means like `su` are unavailable due to `no-new-privileges:true` being set.
+> 
+> **You must specify `exec gosu` when using it at all times.**
+>
+> A [privilege escalation attack](https://nvd.nist.gov/vuln/detail/CVE-2016-2779) is possible with `gosu`
+> unless the parent shell is replaced by it. `exec` allows `gosu` to be used safely.
+>
+> For more information, see: https://github.com/tianon/gosu/issues/37
 
 ## Tips:
 
