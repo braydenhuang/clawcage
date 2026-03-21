@@ -105,7 +105,8 @@ openclaw@openclaw:/$ openclaw onboard
 
 #### The firewall cannot resolve via DNS-over-TLS (DoT)
 - This is common in corporate or restricted networks.
-- Change to DNS-over-HTTPS (DoH) by making this edit in `wireguard-fw/nftables.conf`...
+- Install a DNS proxy (such as `dnsdist`) in the firewall container. Set it up to use DNS-over-HTTPS (DoH), then hardwall it to only accept local connections.
+- Finally, make this edit in `wireguard-fw/nftables.conf`...
     ```bash
     # Old
     # Unbound DNS over TLS (DoT) upstream queries
@@ -127,13 +128,8 @@ openclaw@openclaw:/$ openclaw onboard
     forward-addr: 8.8.4.4@853#dns.google
     
     # New
-    # Cloudflare — primary
-    forward-addr: 1.1.1.1@443#cloudflare-dns.com
-    forward-addr: 1.0.0.1@443#cloudflare-dns.com
-
-    # Google — fallback
-    forward-addr: 8.8.8.8@443#dns.google
-    forward-addr: 8.8.4.4@443#dns.google
+    # dnsdist DoH proxy (use the port you configured in dnsdist)
+    forward-addr: 127.0.0.1@5053
     ```    
 
 ## To-Do List:
