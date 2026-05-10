@@ -4,7 +4,8 @@
 # These are domains you want your OpenClaw to access.
 #
 # Notes:
-# The domain is first resolved by refresh.sh into an IP address, and the resulting IP:port:protocol is allowed
+# - The domain is first resolved by refresh.sh into an IP address, and the resulting IP:port:protocol is allowed
+# - For security: Do NOT add a DNS server to this list! Instead, set your desired servers in unbound.conf
 #
 
 openclaw.ai:443:tcp

@@ -45,7 +45,6 @@ esac\n' > /usr/local/bin/uname \
 # Add a non-root user to run the OpenClaw gateway
 RUN groupadd -r openclaw && useradd -r -g openclaw -s /bin/false openclaw
 
-
 # ============================================================
 # Entrypoint
 # ============================================================
